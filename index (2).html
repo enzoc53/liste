@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liste BBQ 🔥</title>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import {
+    getDatabase, ref, push, onValue,
+    update, remove, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAU3j6jG1mydAzcnjhJgTiU_eO2YsnsZyg",
+    authDomain: "liste-94ad1.firebaseapp.com",
+    databaseURL: "https://liste-94ad1-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "liste-94ad1",
+    storageBucket: "liste-94ad1.firebasestorage.app",
+    messagingSenderId: "67060521359",
+    appId: "1:67060521359:web:a46e9e5005574bd7a713fa",
+    measurementId: "G-2XY60C0P51"
+  };
+
+  let db, itemsRef;
+
+  function tryInit() {
+    const app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+    itemsRef = ref(db, "bbq-items");
+
+    onValue(itemsRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const items = Object.entries(data).map(([id, val]) => ({ id, ...val }));
+      items.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      render(items);
+    });
+  }
+
+  window.addItem = async function () {
+    const nameInput = document.getElementById("item-name");
+    const qtyInput = document.getElementById("item-qty");
+    const whoInput = document.getElementById("item-who");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    await push(itemsRef, {
+      name,
+      qty: qtyInput.value.trim() || "1",
+      who: whoInput.value.trim() || "",
+      price: null,
+      bought: false,
+      createdAt: Date.now()
+    });
+    nameInput.value = "";
+    qtyInput.value = "";
+    nameInput.focus();
+  };
+
+  window.togglePresent = async function (id, current) {
+    await update(ref(db, "bbq-items/" + id), { bought: !current });
+  };
+
+  window.updatePrice = async function (id, value) {
+    const price = value === "" ? null : parseFloat(value.replace(",", "."));
+    await update(ref(db, "bbq-items/" + id), { price: isNaN(price) ? null : price });
+  };
+
+  window.removeItem = async function (id) {
+    await remove(ref(db, "bbq-items/" + id));
+  };
+
+  function render(items) {
+    const list = document.getElementById("list");
+    const empty = document.getElementById("empty-state");
+    const totalEl = document.getElementById("total");
+    const countEl = document.getElementById("count");
+
+    if (items.length === 0) {
+      list.innerHTML = "";
+      empty.style.display = "flex";
+      totalEl.textContent = "0,00 €";
+      countEl.textContent = "0 article";
+      return;
+    }
+    empty.style.display = "none";
+
+    let total = 0;
+    let boughtCount = 0;
+    list.innerHTML = items.map(item => {
+      if (item.price) total += item.price;
+      if (item.bought) boughtCount++;
+      return `
+        <li class="row ${item.bought ? 'bought' : ''}">
+          <button class="check" onclick="togglePresent('${item.id}', ${item.bought})" aria-label="Marquer comme acheté">
+            ${item.bought ? '🔥' : ''}
+          </button>
+          <div class="info">
+            <span class="name">${escapeHtml(item.name)}</span>
+            <span class="meta">${escapeHtml(item.qty)}${item.who ? ' · ajouté par ' + escapeHtml(item.who) : ''}</span>
+          </div>
+          <div class="price-wrap">
+            <input type="text" inputmode="decimal" class="price-input" placeholder="0,00"
+              value="${item.price !== null ? item.price.toString().replace('.', ',') : ''}"
+              onchange="updatePrice('${item.id}', this.value)">
+            <span class="euro">€</span>
+          </div>
+          <button class="remove" onclick="removeItem('${item.id}')" aria-label="Supprimer">✕</button>
+        </li>
+      `;
+    }).join("");
+
+    totalEl.textContent = total.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+    countEl.textContent = `${boughtCount}/${items.length} trouvé${boughtCount > 1 ? 's' : ''}`;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  window.addEventListener("DOMContentLoaded", tryInit);
+</script>
+
+<style>
+  :root {
+    --char: #1c1815;
+    --char-light: #262019;
+    --card: #2b241d;
+    --flame: #ff5a1f;
+    --flame-dim: #ff5a1f33;
+    --ember: #ffb648;
+    --herb: #9ec53f;
+    --smoke: #a89e8f;
+    --paper: #f2ece1;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--char);
+    background-image:
+      radial-gradient(circle at 15% 0%, #ff5a1f14 0%, transparent 45%),
+      radial-gradient(circle at 85% 10%, #ffb64810 0%, transparent 40%);
+    color: var(--paper);
+    font-family: 'Work Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Work+Sans:wght@400;500;600;700&display=swap');
+
+  header {
+    padding: 40px 20px 28px;
+    text-align: center;
+    position: relative;
+  }
+
+  .grate {
+    height: 6px;
+    background-repeat: repeat-x;
+    background-image: repeating-linear-gradient(90deg, var(--flame) 0 18px, transparent 18px 26px);
+    opacity: 0.85;
+  }
+
+  h1 {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(2rem, 8vw, 3rem);
+    margin: 18px 0 4px;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: var(--paper);
+  }
+  h1 span { color: var(--flame); }
+
+  .subtitle {
+    color: var(--smoke);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  #setup-warning {
+    display: none;
+    background: #3a2318;
+    border: 1px solid var(--flame);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--ember);
+  }
+
+  .add-form {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 10px;
+    margin-bottom: 24px;
+    border: 1px solid #3a3128;
+  }
+
+  .add-form input {
+    background: var(--char-light);
+    border: 1px solid #423628;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--paper);
+    font-size: 1rem;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+  }
+  .add-form input:focus { border-color: var(--flame); }
+  .add-form input::placeholder { color: #6b5f4f; }
+
+  #item-name { grid-column: 1 / -1; }
+
+  .add-btn {
+    grid-column: 1 / -1;
+    background: var(--flame);
+    color: var(--char);
+    border: none;
+    border-radius: 10px;
+    padding: 13px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: transform 0.1s ease, background 0.15s ease;
+  }
+  .add-btn:hover { background: var(--ember); }
+  .add-btn:active { transform: scale(0.98); }
+
+  .summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 0 4px 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #423628;
+  }
+
+  #count { color: var(--smoke); font-size: 0.9rem; }
+
+  .total-block { text-align: right; }
+  .total-label { display: block; font-size: 0.75rem; color: var(--smoke); text-transform: uppercase; letter-spacing: 0.06em; }
+  #total { font-family: 'Archivo Black', sans-serif; font-size: 1.6rem; color: var(--flame); }
+
+  ul#list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+  .row {
+    background: var(--card);
+    border: 1px solid #3a3128;
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: opacity 0.2s ease, background 0.2s ease;
+  }
+  .row.bought { opacity: 0.55; background: #232019; }
+
+  .check {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 50%;
+    border: 2px solid var(--flame-dim);
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .row.bought .check { border-color: var(--herb); background: #9ec53f22; }
+
+  .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .name { font-weight: 600; font-size: 0.98rem; }
+  .row.bought .name { text-decoration: line-through; }
+  .meta { font-size: 0.78rem; color: var(--smoke); }
+
+  .price-wrap { display: flex; align-items: center; gap: 3px; }
+  .price-input {
+    width: 62px;
+    background: var(--char-light);
+    border: 1px solid #423628;
+    border-radius: 8px;
+    padding: 7px 6px;
+    color: var(--paper);
+    font-family: inherit;
+    font-size: 0.9rem;
+    text-align: right;
+    outline: none;
+  }
+  .price-input:focus { border-color: var(--flame); }
+  .euro { color: var(--smoke); font-size: 0.85rem; }
+
+  .remove {
+    background: none;
+    border: none;
+    color: var(--smoke);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .remove:hover { color: var(--flame); }
+
+  #empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 50px 20px;
+    color: var(--smoke);
+    text-align: center;
+  }
+  #empty-state .icon { font-size: 2.2rem; }
+
+  footer {
+    text-align: center;
+    color: #5a5040;
+    font-size: 0.78rem;
+    margin-top: 30px;
+  }
+
+  @media (min-width: 480px) {
+    .add-form { grid-template-columns: 2fr 1fr 1fr; }
+    .add-btn { grid-column: 3; }
+    #item-name { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grate"></div>
+<header>
+  <h1>Liste <span>BBQ</span> 🔥</h1>
+  <p class="subtitle">Ajoutez vos aliments, marquez les prix, on partage tout.</p>
+</header>
+
+<main>
+  <div id="setup-warning">
+    ⚠️ <div>
+      <strong>Firebase non configuré.</strong> La liste ne sera pas partagée entre vous tant que tu n'as pas collé ta config Firebase dans le fichier (voir les instructions données avec le site).
+    </div>
+  </div>
+
+  <div class="add-form">
+    <input id="item-name" type="text" placeholder="Aliment (ex: Merguez)" onkeydown="if(event.key==='Enter') addItem()">
+    <input id="item-qty" type="text" placeholder="Quantité (ex: 2kg)" onkeydown="if(event.key==='Enter') addItem()">
+    <input id="item-who" type="text" placeholder="Ton prénom" onkeydown="if(event.key==='Enter') addItem()">
+    <button class="add-btn" onclick="addItem()">+ Ajouter à la liste</button>
+  </div>
+
+  <div class="summary">
+    <span id="count">0 article</span>
+    <div class="total-block">
+      <span class="total-label">Total</span>
+      <span id="total">0,00 €</span>
+    </div>
+  </div>
+
+  <ul id="list"></ul>
+
+  <div id="empty-state">
+    <div class="icon">🍖</div>
+    <div>La liste est vide. Premier à lancer le feu ?</div>
+  </div>
+</main>
+
+<footer>Liste BBQ partagée · appuyez sur le rond pour marquer un article comme trouvé</footer>
+
+</body>
+</html>
